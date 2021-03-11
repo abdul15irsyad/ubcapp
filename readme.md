@@ -1,2 +1,2 @@
 # Express MongoDB Boilerplate
-My boilerplate rest api with express + mongodb
+My boilerplate rest api with express and mongodb
