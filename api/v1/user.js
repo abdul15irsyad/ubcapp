@@ -1,6 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const bcrypt = require('bcrypt')
+const { validationResult } = require('express-validator')
+const { name, username, password, confirmPassword, oldPassword } = require('../../validators/userValidator')
 
 const User = require('../../models/User')
 
@@ -82,9 +84,20 @@ router.get('/:id', (req, res) => {
 * @apiParam {string} name : user's name
 * @apiParam {string} username : user's username
 * @apiParam {string} password : user's password
+* @apiParam {string} confirmPassword : confirm password
 */
-router.post('/', async (req, res) => {
+router.post('/', [name, username, password, confirmPassword], async (req, res) => {
     try {
+        // if validation failed
+        let errors = validationResult(req)
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                status: false,
+                message: 'inputs not valid',
+                errors: errors.array({ onlyFirstError: true })
+            })
+        }
+        // if validation has been successful
         User.create({
             name: req.body.name,
             username: req.body.username,
@@ -113,7 +126,7 @@ router.post('/', async (req, res) => {
 })
 
 /*
-* @api {patch} /api/v1/user
+* @api {patch} /api/v1/user/:id
 * @apiName editUser
 * @apiPermission public
 * @apiDescription edit user
@@ -121,14 +134,60 @@ router.post('/', async (req, res) => {
 * @apiParam {number} id : user unique id
 * @apiParam {string} name : user's name
 * @apiParam {string} username : user's username
-* @apiParam {string} password : user's password
 */
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', [name, username], async (req, res) => {
+    try {
+        // if validation failed
+        let errors = validationResult(req)
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                status: false,
+                message: 'inputs not valid',
+                errors: errors.array({ onlyFirstError: true })
+            })
+        }
+        // if validation has been successful
+        let id = req.params.id
+        User.findByIdAndUpdate(id, {
+            name: req.body.name,
+            username: req.body.username,
+        }, async (err, doc) => {
+            if (doc) {
+                res.status(200).json({
+                    status: true,
+                    data: await User.findById(id, '-password')
+                })
+            } else {
+                res.status(200).json({
+                    status: false,
+                    message: "user not found!"
+                })
+            }
+        })
+    } catch (err) {
+        res.status(500).json({
+            message: 'interal server error!',
+            error: err.message
+        })
+    }
+})
+
+/*
+* @api {patch} /api/v1/user/:id/password
+* @apiName editUserPassword
+* @apiPermission public
+* @apiDescription edit user
+*
+* @apiParam {number} id : user unique id
+* @apiParam {string} oldPassword : user's old password
+* @apiParam {string} password : user's password
+* @apiParam {string} confirmPassword : confirm password
+*/
+router.patch('/:id/password', [oldPassword, password, confirmPassword], async (req, res) => {
     try {
         let id = req.params.id
-        if (req.body.password) req.body.password = await bcrypt.hash(req.body.password, 10)
         User.findByIdAndUpdate(id, {
-            $set: req.body
+            password: req.body.password
         }, async (err, doc) => {
             if (doc) {
                 res.status(200).json({
